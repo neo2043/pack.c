@@ -1,0 +1,30 @@
+const host_target = $"($nu.os-info.arch)-($nu.os-info.name)"
+const build_dir  = $"build-($host_target)"
+
+def "nur build" [] {
+    mkdir $build_dir
+    cd $build_dir
+    cmake -B . -S .. -G Ninja # configure
+    cmake --build .           # build
+}
+
+def "nur clean" [] {
+    rm -rf $build_dir
+}
+
+def --wrapped "nur run" [bin = pack,...rest] {
+    nur build
+    ^$"($build_dir | path join $bin)" ...$rest
+}
+
+def "nur patch" [] {
+    (do {cd patches; ls **/*.patch} 
+    | each { |patch| $patch.name } 
+    | str replace --regex .patch$ "" 
+    | each { |directory| git apply --directory= $directory $"patches/($directory).patch" })
+}
+
+def "nur patch generate" [directory:path] {
+    (git --no-pager diff --no-color --submodule=diff $directory 
+    | save --force ($env.PWD | path join patches $"($env.PWD | path join $directory | path relative-to $env.PWD).patch" ))
+}
