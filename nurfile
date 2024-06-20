@@ -18,13 +18,21 @@ def --wrapped "nur run" [bin = pack,...rest] {
 }
 
 def "nur patch" [] {
-    (do {cd patches; ls **/*.patch} 
-    | each { |patch| $patch.name } 
-    | str replace --regex .patch$ "" 
-    | each { |directory| git apply --directory= $directory $"patches/($directory).patch" })
+    ls patches/* | each {|file| git apply $file.name} | str join
+}
+    
+def "nur unpatch" [] {
+    ls patches/* | each {|file| git apply -R $file.name} | str join
 }
 
 def "nur patch generate" [directory:path] {
     (git --no-pager diff --no-color --submodule=diff $directory 
     | save --force ($env.PWD | path join patches $"($env.PWD | path join $directory | path relative-to $env.PWD).patch" ))
+}
+
+def "nur get sqlite" [] {
+    let temp_path = $nu.temp-path | path join $"(random chars --length 8).zip"
+    http get https://sqlite.org/2024/sqlite-amalgamation-3460000.zip | save $temp_path
+    tar -xv -C ($nu.temp-path) -f $temp_path
+    mv ($nu.temp-path | path join sqlite-amalgamation-3460000) ($env.PWD | path join vendor sqlite)
 }

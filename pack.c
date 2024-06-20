@@ -9,6 +9,7 @@
 
 #include "walk.h"
 #include "arraylist.h"
+#include "sqlite3.h"
 
 int main() {
     arraylist* pathList = arraylist_create();
@@ -16,7 +17,7 @@ int main() {
     char *item;
     walk(".",pathList);
     arraylist_iterate(pathList){
-        printf("[%i] = %p = %s\n", ctx.index, ctx.item, (char*)ctx.item);
+        printf("[%i] = stat* [%p] = %p = %s\n", ctx.index, ((file_t*)ctx.item)->filestat, ctx.item, (char*)((file_t*)ctx.item)->path);
     }
     return 0;
 }

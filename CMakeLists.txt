@@ -23,6 +23,14 @@ target_include_directories(datastructs PUBLIC ${PROJECT_SOURCE_DIR}/vendor/datas
 link_libraries(datastructs)
 
 # Add libraries
+file(GLOB SQLITE_SOURCES vendor/sqlite/*.c)
+file(GLOB SQLITE_HEADERS vendor/sqlite/*.h)
+add_library(sqlite ${SQLITE_SOURCES})
+target_sources(sqlite INTERFACE ${SQLITE_HEADERS})
+target_include_directories(sqlite PUBLIC ${PROJECT_SOURCE_DIR}/vendor/sqlite)
+link_libraries(sqlite)
+
+# Add libraries
 file(GLOB LIB_SOURCES lib/*.c)
 file(GLOB LIB_HEADERS lib/*.h)
 add_library(LIB ${LIB_SOURCES})
