@@ -6,7 +6,6 @@
 	path = vendor/cwalk
 	url = https://github.com/likle/cwalk.git
 	shallow = true
-[submodule "datastructs"]
-	path = vendor/datastructs
-	url = https://github.com/marekweb/datastructs-c.git
-	shallow = true
+[submodule "argparse"]
+	path = vendor/argparse
+	url = https://github.com/cofyc/argparse.git
