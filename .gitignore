@@ -1,7 +1,9 @@
 /reference
-/test
+/test*
 /build*
 /.idea
 /plan.md
 /vendor
 /db
+/cmake*
+*.txt

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.9.2)
 
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_C_COMPILER gcc)
+set(CMAKE_C_COMPILER clang)
 
 project(pack.c
     VERSION 1.0.0
@@ -27,14 +27,26 @@ target_sources(sqlite INTERFACE ${SQLITE_HEADERS})
 target_include_directories(sqlite PUBLIC ${PROJECT_SOURCE_DIR}/vendor/sqlite)
 
 # Add libraries
+file(GLOB DATASTRUCT_SOURCES vendor/datastructs/*.c)
+file(GLOB DATASTRUCT_HEADERS vendor/datastructs/*.h)
+add_library(datastructs ${DATASTRUCT_SOURCES})
+target_sources(datastructs INTERFACE ${DATASTRUCT_HEADERS})
+target_include_directories(datastructs PUBLIC ${PROJECT_SOURCE_DIR}/vendor/datastructs)
+
+# Add libraries
 file(GLOB LIB_SOURCES lib/*.c lib/**/*.c)
 file(GLOB LIB_HEADERS lib/*.h lib/**/*.h)
 add_library(LIB ${LIB_SOURCES})
 target_sources(LIB INTERFACE ${LIB_HEADERS})
 target_include_directories(LIB PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-target_link_libraries(LIB cwalk sqlite libzstd_static argparse)
+target_link_libraries(LIB cwalk sqlite datastructs libzstd_static argparse)
 link_libraries(LIB)
 
 add_executable(pack pack.c)
-
-add_executable(test4 test/test4.c)
+file(GLOB SOURCE_FILES RELATIVE ${PROJECT_SOURCE_DIR}/test test/*.c)
+foreach (BIN_SOURCE ${SOURCE_FILES})
+    string(REPLACE ".c" "" BIN ${BIN_SOURCE})
+    target_compile_definitions(LIB PRIVATE DEBUG)
+    add_executable(${BIN} test/${BIN_SOURCE})
+    target_link_libraries(${BIN} LIB)
+endforeach ()

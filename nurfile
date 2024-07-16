@@ -1,21 +1,22 @@
 const host_target = $"($nu.os-info.arch)-($nu.os-info.name)"
 const build_dir  = $"build-($host_target)"
 
-def "nur build" [] {
+def "nur build" [target = all] {
     mkdir $build_dir
     cd $build_dir
     cmake -B . -S .. -G Ninja # configure
-    cmake --build .           # build
+    cmake --build . --target $target           # build
 }
 
 def "nur clean" [] {
-    rm -rf $build_dir
+    rm -rf ./build-*
+    rm -rf ./cmake-build-*
 }
     
 def --wrapped "nur run" [bin = pack,...rest] {
     rm -rf "db/"
     mkdir db
-    nur build
+    nur build $bin
     ^$"($build_dir | path join $bin)" ...$rest
 }
 

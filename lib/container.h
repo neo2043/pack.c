@@ -1,32 +1,28 @@
-#ifndef SQLITE_UTIL
-#define SQLITE_UTIL
+#ifndef CONTAINER
+#define CONTAINER
 
 #include "sqlite3.h"
 
 typedef struct {
     sqlite3 *DB;
-    sqlite3_stmt *insertinfiletablestmt;
-    sqlite3_stmt *insertinchunkstablestmt;
 } db_ctx;
 
-extern char *sqlcreatefiletable;
+db_ctx init_db_ctx(char *path);
 
-extern char *sqlcreatechunktable;
+typedef struct {
+    sqlite3 *DB;
+    sqlite3_stmt *stmt;
+} db_insert_file_ctx;
 
-extern char *sqlcreatechunkindex;
+db_insert_file_ctx init_db_insert_file_ctx(db_ctx *ctx);
+int db_insert_file(db_insert_file_ctx *ctx, char *fpath);
 
-extern char *insertinfiletable;
+typedef struct {
+    sqlite3 *DB;
+    sqlite3_stmt *stmt;
+} db_insert_chunk_ctx;
 
-extern char *insertinchunktable;
+db_insert_chunk_ctx init_db_insert_chunk_ctx(db_ctx *ctx);
+void db_insert_chunk(db_insert_chunk_ctx *ctx, const int read_size, const int file_id, const int offset, const void *chunk, const int cSize);
 
-extern char *listfiletable;
-
-extern char *getfilesize;
-
-extern char *getfilechunks;
-
-void create_table(void);
-
-void sqlstmtprepare();
-
-#endif // SQLITE_UTIL
+#endif // CONTAINER

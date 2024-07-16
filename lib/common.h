@@ -8,8 +8,6 @@
 #include "sqlite3.h"
 #include "container.h"
 
-extern db_ctx db;
-
 #define CHECK(cond, ...)                                                                                                                                       \
     do {                                                                                                                                                       \
         if (!(cond)) {                                                                                                                                         \
@@ -26,12 +24,12 @@ extern db_ctx db;
         CHECK(!ZSTD_isError(err), "%s", ZSTD_getErrorName(err));                                                                                               \
     } while (0)
 
-#define CHECK_SQLITE(stmt, ...)                                                                                                                                \
+#define CHECK_SQLITE(expr,ctx, ...)                                                                                                                                \
     do {                                                                                                                                                       \
-        int status = stmt;                                                                                                                                     \
+        int status = expr;                                                                                                                                     \
         if (!((status == SQLITE_OK) || (status == SQLITE_DONE) || (status == SQLITE_ROW))) {                                                                   \
-            fprintf(stderr, "%s:%d CHECK(%s) failed: ", __FILE__, __LINE__, #stmt);                                                                            \
-            fprintf(stderr, "%s\n", sqlite3_errmsg(db.DB));                                                                                                    \
+            fprintf(stderr, "%s:%d CHECK(%s) failed: ", __FILE__, __LINE__, #expr);                                                                            \
+            fprintf(stderr, "%s\n", sqlite3_errmsg(ctx->DB));                                                                                                    \
             fprintf(stderr, "" __VA_ARGS__);                                                                                                                   \
             fprintf(stderr, "\n");                                                                                                                             \
             exit(1);                                                                                                                                           \
