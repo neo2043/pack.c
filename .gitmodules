@@ -9,3 +9,6 @@
 [submodule "argparse"]
 	path = vendor/argparse
 	url = https://github.com/cofyc/argparse.git
+[submodule "datastructs"]
+	path = vendor/datastructs
+	url = https://github.com/marekweb/datastructs-c.git
