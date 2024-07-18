@@ -20,5 +20,6 @@ typedef struct {
 walk_ctx init_walk_ctx(char *root_path);
 int walk_next(walk_ctx *ctx);
 char *walk_get_absolute_path(walk_ctx *pathCtx, int index,int only_relative_path);
+void deep_free(segment_t *temp);
 
 #endif  // WALK

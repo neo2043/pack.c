@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "compress/walk.h"
@@ -18,20 +18,16 @@
 void compress(char *f_path, char *db_path);
 
 int main() {
-    //normalize fpath, dbpath
+    // char *db_path =getcwd(NULL, PATH_MAX);
+    // cwk_path_get_absolute(db_path, "./db/out.db", db_path, PATH_MAX);
 
-    // char db_path[PATH_MAX];
-    // cwk_path_get_absolute(getcwd(NULL, PATH_MAX), "./db/out.db", db_path, PATH_MAX);
     // compress(".", db_path);
 
-    compress(".", "db\\out.db");
-
-    // compress(".", ":memory:");
+    compress(".", ":memory:");
     return 0;
 }
 
 void compress(char *f_path, char *db_path) {
-    //normalize fpath, dbpath
     walk_ctx pctx = init_walk_ctx(f_path);
     db_ctx dbctx = init_db_ctx(db_path);
     db_insert_file_ctx i_file_ctx = init_db_insert_file_ctx(&dbctx);
@@ -42,7 +38,7 @@ void compress(char *f_path, char *db_path) {
             continue;
         char *file_path = walk_get_absolute_path(&pctx, -1, 0);
         char *rel_file_path = walk_get_absolute_path(&pctx, -1, 1);
-        if (!strcmp(rel_file_path, db_path)) {
+        if (!strcmp(file_path, db_path)) {
             continue;
         }
         FILE *const f = fopen(file_path, "rb");

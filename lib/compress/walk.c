@@ -7,14 +7,15 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "compress/walk.h"
 #include "arraylist.h"
 #include "common.h"
 #include "cwalk.h"
 #include "walk.h"
 
-char *walk_get_absolute_path(walk_ctx *pathCtx, int index,int only_relative_path) {
+char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_path) {
     char *path = calloc(4, sizeof(char));
-    if(!only_relative_path){
+    if (!only_relative_path) {
 #if defined(_WIN32)
         size_t rootlen;
         cwk_path_get_root(((segment_t *)arraylist_get(pathCtx->path_segment_stack, 0))->segment_name, &rootlen);
@@ -24,7 +25,15 @@ char *walk_get_absolute_path(walk_ctx *pathCtx, int index,int only_relative_path
 #endif
     }
     arraylist_iterate(pathCtx->path_segment_stack) {
-        if(only_relative_path){
+        if (only_relative_path && arraylist_size(pathCtx->path_segment_stack) == 1 && S_ISREG(pathCtx->stbuf->st_mode)) {
+            const char *base;
+            size_t len;
+            cwk_path_get_basename(((segment_t *)ctx.item)->segment_name, &base, &len);
+            path = realloc(path, sizeof(char) * (len + 5));
+            memcpy(path, base, len);
+            return path;
+        }
+        if (only_relative_path && S_ISREG(pathCtx->stbuf->st_mode)) {
             only_relative_path = 0;
             continue;
         }
@@ -45,14 +54,13 @@ void add_new_seg_in_arr(walk_ctx *ctx, char *segment_name, long associated_no) {
     new_seg->associated_no = associated_no;
     new_seg->passed_over = false;
     arraylist_add(ctx->path_segment_stack, new_seg);
-    char *new_seg_path = walk_get_absolute_path(ctx, -1,0);
+    char *new_seg_path = walk_get_absolute_path(ctx, -1, 0);
     stat(new_seg_path, ctx->stbuf);
     if (S_ISDIR(ctx->stbuf->st_mode)) {
         new_seg->seg_type = folder;
     } else if (S_ISREG(ctx->stbuf->st_mode)) {
         new_seg->seg_type = file;
     }
-    // arraylist_add(ctx->path_segment_stack, new_seg);
     free(new_seg_path);
 }
 
@@ -94,59 +102,54 @@ int walk_next(walk_ctx *ctx) {
             if (lst_seg->associated_no == 0) {
                 return 0;
             }
-            char *passed_over_Path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2,0);
+            char *passed_over_Path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2, 0);
             dir = opendir(passed_over_Path);
             free(passed_over_Path);
             seekdir(dir, lst_seg->associated_no);
-            arraylist_pop(ctx->path_segment_stack);
+            segment_t *temp = arraylist_pop(ctx->path_segment_stack);
+            deep_free(temp);
         } else {
-            char *abs_path = walk_get_absolute_path(ctx, -1,0);
+            char *abs_path = walk_get_absolute_path(ctx, -1, 0);
             dir = opendir(abs_path);
             free(abs_path);
         }
         struct dirent *de;
         lst_seg->passed_over = true;
         if ((de = readdir_handler(dir)) == NULL) {
-            // arraylist_pop(ctx->path_segment_stack);
             closedir(dir);
-            return walk_next(ctx); // experiment here with not usnig recursion
-            // return 1;
+            return walk_next(ctx);
         }
         add_new_seg_in_arr(ctx, de->d_name, telldir(dir));
         closedir(dir);
     } else {
-        if (lst_seg->associated_no == 0) {
+        if (lst_seg->associated_no == 0 && lst_seg->passed_over == false) {
+            lst_seg->passed_over = true;
+            return 1;
+        }
+        if (lst_seg->associated_no == 0 && lst_seg->passed_over == true) {
             return 0;
         }
         DIR *dir;
         struct dirent *de;
-        char *abs_path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2,0);
+        char *abs_path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2, 0);
         dir = opendir(abs_path);
         free(abs_path);
         seekdir(dir, lst_seg->associated_no);
         if ((de = readdir_handler(dir)) == NULL) {
-            arraylist_pop(ctx->path_segment_stack);
+            segment_t *temp = arraylist_pop(ctx->path_segment_stack);
+            deep_free(temp);
             closedir(dir);
             return walk_next(ctx);
-            // return 1;
         }
-        arraylist_pop(ctx->path_segment_stack); // experiment here with not popping but editing in place
+        segment_t *temp = arraylist_pop(ctx->path_segment_stack);
+        deep_free(temp);
         add_new_seg_in_arr(ctx, de->d_name, telldir(dir));
         closedir(dir);
     }
     return 1;
 }
 
-// int main() {
-//     setbuf(stdout, 0);
-//     int count = 0;
-//     walk_ctx p = init_walk_ctx(".");
-//     while (walk_next(&p, true)) {
-//         if(S_ISREG(p.stbuf->st_mode)){
-//             count++;
-//             char *u = walk_get_absolute_path(&p, -1);
-//             printf("%d : %s\n", count, u);
-//             free(u);
-//         }
-//     }
-// }
+void deep_free(segment_t *temp) {
+    free(temp->segment_name);
+    free(temp);
+}
