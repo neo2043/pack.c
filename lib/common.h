@@ -2,11 +2,8 @@
 #define COMMON_H
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "sqlite3.h"
-#include "container.h"
 
 #define CHECK(cond, ...)                                                                                                                                       \
     do {                                                                                                                                                       \
@@ -35,5 +32,12 @@
             exit(1);                                                                                                                                           \
         }                                                                                                                                                      \
     } while (0)
+
+typedef struct {
+    long nprocs;
+    long nprocs_max;
+} cpu_threads_t;
+
+cpu_threads_t* get_cpu_threads();
 
 #endif

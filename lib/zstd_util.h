@@ -2,7 +2,6 @@
 #define ZSTD_UTIL
 
 #include "zstd.h"
-#include <stdio.h>
 
 typedef struct {
     void *fBuffer;
@@ -13,5 +12,6 @@ typedef struct {
 } compress_ctx;
 
 compress_ctx init_compress_ctx(int compression_level);
+void deinit_compress_ctx(compress_ctx *ctx);
 
 #endif // ZSTD_UTIL

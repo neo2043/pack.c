@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "zstd.h"
@@ -16,4 +15,10 @@ compress_ctx init_compress_ctx(int compression_level) {
     assert(res.cctx != NULL);
     CHECK_ZSTD(ZSTD_CCtx_setParameter(res.cctx, ZSTD_c_compressionLevel, compression_level));
     return res;
+}
+
+void deinit_compress_ctx(compress_ctx *ctx){
+    free(ctx->cBuffer);
+    free(ctx->fBuffer);
+    CHECK_ZSTD(ZSTD_freeCCtx(ctx->cctx));
 }

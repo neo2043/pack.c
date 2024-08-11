@@ -4,8 +4,10 @@ const build_dir  = $"build-($host_target)"
 def "nur build" [target = all] {
     mkdir $build_dir
     cd $build_dir
-    cmake -B . -S .. -G Ninja # configure
-    cmake --build . --target $target           # build
+    # cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S .. -B .
+    # cmake --build . --config Release --target $target
+    cmake -G Ninja -S .. -B .
+    cmake --build . --target $target
 }
 
 def "nur clean" [] {
@@ -38,4 +40,42 @@ def "nur get sqlite" [] {
     http get https://sqlite.org/2024/sqlite-amalgamation-3460000.zip | save $temp_path
     tar -xv -C ($nu.temp-path) -f $temp_path
     mv ($nu.temp-path | path join sqlite-amalgamation-3460000) ($env.PWD | path join vendor sqlite)
+}
+
+const query = '
+SELECT
+  FILE_TABLE.ID AS id,
+  SUM(COALESCE(CHUNKS.SIZE, 0)) AS original,
+  SUM(COALESCE(LENGTH(CHUNKS.CHUNK), 0)) AS compressed,
+  FILE_TABLE.FILE_PATH AS path
+FROM FILE_TABLE
+LEFT JOIN CHUNKS ON FILE_TABLE.ID = CHUNKS.FILE_ID
+GROUP BY FILE_TABLE.ID;
+SORT BY FILE_TABLE.ID ASC;
+'
+
+
+def "nur dump" [db_path: path = "output.db"] {
+  let db = open $db_path;
+
+  let result = (
+    $db
+    | query db $query
+    | insert ratio { $in.compressed / ([1 $in.original] | math max) | into float }
+    | update original { $in | into filesize }
+    | update compressed { $in | into filesize }
+    | select id original compressed ratio path
+  )
+
+  $result | explore
+
+  (
+    $result
+    | reduce --fold { original: 0, compressed: 0 } { |it, acc| $acc | update original { ($it.original | into int) + $acc.original } | update compressed { ($it.compressed | into int) + $acc.compressed } }
+    | insert ratio { $in.compressed / ([1 $in.original] | math max) | into float }
+    | update original { $in | into filesize }
+    | update compressed { $in | into filesize }
+    | select original compressed ratio
+    | print
+  )
 }

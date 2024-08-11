@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9.2)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 23)
 
 set(CMAKE_C_COMPILER clang)
 
@@ -8,7 +8,11 @@ project(pack.c
     VERSION 1.0.0
     LANGUAGES C)
 
-    
+# set(CMAKE_BUILD_TYPE "Release")
+
+find_program(SCCACHE sccache REQUIRED)
+set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE})
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
     
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vendor/cwalk)
@@ -39,7 +43,7 @@ file(GLOB LIB_HEADERS lib/*.h lib/**/*.h)
 add_library(LIB ${LIB_SOURCES})
 target_sources(LIB INTERFACE ${LIB_HEADERS})
 target_include_directories(LIB PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-target_link_libraries(LIB cwalk sqlite datastructs libzstd_static argparse)
+target_link_libraries(LIB cwalk sqlite datastructs libzstd_static argparse pthread)
 link_libraries(LIB)
 
 add_executable(pack pack.c)
