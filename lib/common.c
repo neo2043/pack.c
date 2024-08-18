@@ -36,9 +36,24 @@ cpu_threads_t* get_cpu_threads(){
     }
     printf("%ld of %ld processors online\n", cpu_thread_info->nprocs, cpu_thread_info->nprocs_max);
     return cpu_thread_info;
-    // exit(EXIT_SUCCESS);
 #else
     fprintf(stderr, "Could not determine number of CPUs");
     exit(EXIT_FAILURE);
 #endif
+}
+
+int contains(const char *look_into, const char *look_for){
+    int i=0;
+    const int look_for_len=strlen(look_for);
+    while(look_into[i]!='\0'){
+        int in_count=0;
+        while(look_into[i]==look_for[in_count]){
+            if((++in_count)==look_for_len){
+                return 1;
+            }
+            i++;
+        }
+        i++;
+    }
+    return 0;
 }

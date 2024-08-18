@@ -11,7 +11,7 @@ typedef struct {
     ZSTD_CCtx *cctx;
 } compress_ctx;
 
-compress_ctx init_compress_ctx(int compression_level);
+compress_ctx* init_compress_ctx(int compression_level);
 void deinit_compress_ctx(compress_ctx *ctx);
 
 #endif // ZSTD_UTIL

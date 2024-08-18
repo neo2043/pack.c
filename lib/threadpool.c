@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "threadpool.h"
@@ -10,19 +11,19 @@
 /* ======================== STATIC FUNCTIONS DEFINED ========================= */
 
 // THREAD
-static void thread_init(pthread_t *thread, threadpool_t *threadpool);
+static void thread_t_arr_init(threadpool_t *threadpool, int thread_num);
 static void *thread_do(void *arg);
 
 // jobqueue
-static jobqueue_sync_t *jobqueue_sync_t_init(void);
-static void jobqueue_sync_t_deinit(jobqueue_sync_t *jobqueue_sync);
 static jobqueue_t *jobqueue_t_init(void);
 static void jobqueue_t_deinit(jobqueue_t *jobqueue);
-static void jobqueue_clear(jobqueue_t *jobqueue);
 static job_t *jobqueue_pull(jobqueue_t *jobqueue);
 void jobqueue_push(jobqueue_t *jobqueue, job_t *newjob);
+static void jobqueue_clear(jobqueue_t *jobqueue);
 
 // sync
+static jobqueue_sync_t *jobqueue_sync_t_init(void);
+static void jobqueue_sync_t_deinit(jobqueue_sync_t *jobqueue_sync);
 static void jobqueue_sync_post(jobqueue_sync_t *jobqueue_sync);
 static void jobqueue_sync_post_all(jobqueue_sync_t *jobqueue_sync);
 static void jobqueue_sync_wait(jobqueue_sync_t *jobqueue_sync);
@@ -32,7 +33,7 @@ static void jobqueue_sync_wait(jobqueue_sync_t *jobqueue_sync);
 // threadpool init
 threadpool_t *threadpool_t_init(int thread_num) {
     threadpool_t *threadpool = malloc(sizeof(threadpool_t));
-
+    threadpool->thread_num = thread_num;
     CHECK(threadpool != NULL, "threadpool calloc");
     CHECK(pthread_mutex_init(&threadpool->threadpool_thread_count_mutex, NULL) == 0, "threadpool_t mutex init");
     CHECK(pthread_cond_init(&threadpool->threadpool_thread_idle_cond, NULL) == 0, "threadpool_t cond init");
@@ -41,13 +42,11 @@ threadpool_t *threadpool_t_init(int thread_num) {
     atomic_init(&threadpool->num_threads_alive, 0);
     atomic_init(&threadpool->num_threads_working, 0);
 
-    threadpool->thread = calloc(thread_num, sizeof(pthread_t));
-    CHECK(threadpool->thread, "threadpool_t thread init");
-
     threadpool->jobqueue = jobqueue_t_init();
-    for (int i = 0; i < thread_num; i++) {
-        thread_init(&threadpool->thread[i], threadpool);
-    }
+
+    threadpool->thread_t_arr = calloc(thread_num, sizeof(thread_t));
+    CHECK(threadpool->thread_t_arr != NULL, "threadpool_t thread init");
+    thread_t_arr_init(threadpool, thread_num);
 
     return threadpool;
 }
@@ -77,48 +76,62 @@ void threadpool_destroy(threadpool_t *threadpool) {
     atomic_store(&threadpool->keep_threadpool_alive, 0);
     while (atomic_load(&threadpool->num_threads_alive)) {
         jobqueue_sync_post_all(threadpool->jobqueue->jobqueue_sync);
-        // sleep(1);
+        sleep(1);
     }
     jobqueue_t_deinit(threadpool->jobqueue);
-    free(threadpool->thread);
+    free(threadpool->thread_t_arr);
     free(threadpool);
 }
 
 // get alive thread
-int get_thread_alive(threadpool_t *threadpool) { return atomic_load(&threadpool->num_threads_alive); }
+int get_num_alive_threads(threadpool_t *threadpool) { return atomic_load(&threadpool->num_threads_alive); }
 
 /* ======================== THREAD ========================= */
 
 // thread init
-static void thread_init(pthread_t *thread, threadpool_t *threadpool) {
-    CHECK(pthread_create(thread, NULL, thread_do, threadpool) == 0, "new thread create");
-    CHECK(pthread_detach(*thread) == 0, "new thread detach");
+static void thread_t_arr_init(threadpool_t *threadpool, int num_thread) {
+    for (int i = 0; i < num_thread; i++) {
+        threadpool->thread_t_arr[i].threadpool = threadpool;
+        threadpool->thread_t_arr[i].id = i;
+        CHECK(pthread_create(&threadpool->thread_t_arr[i].thread, NULL, thread_do, &threadpool->thread_t_arr[i]) == 0, "new thread create");
+        CHECK(pthread_detach(threadpool->thread_t_arr[i].thread) == 0, "new thread detach");
+    }
 }
 
 // thread_do
 static void *thread_do(void *arg) {
-    threadpool_t *threadpool = (threadpool_t *)arg;
+    thread_t *thread = (thread_t *)arg;
 
-    atomic_fetch_add(&threadpool->num_threads_alive, 1);
+    atomic_fetch_add(&thread->threadpool->num_threads_alive, 1);
 
-    while (atomic_load(&threadpool->keep_threadpool_alive)) {
+    while (atomic_load(&thread->threadpool->keep_threadpool_alive)) {
         job_t *job;
-        while (atomic_load(&threadpool->keep_threadpool_alive) && (job = jobqueue_pull(threadpool->jobqueue)) == NULL) {
-            jobqueue_sync_wait(threadpool->jobqueue->jobqueue_sync);
+        while (atomic_load(&thread->threadpool->keep_threadpool_alive) && (job = jobqueue_pull(thread->threadpool->jobqueue)) == NULL) {
+            jobqueue_sync_wait(thread->threadpool->jobqueue->jobqueue_sync);
         }
 
-        if (atomic_load(&threadpool->keep_threadpool_alive)) {
-            atomic_fetch_add(&threadpool->num_threads_working, 1);
+        if (atomic_load(&thread->threadpool->keep_threadpool_alive)) {
+            atomic_fetch_add(&thread->threadpool->num_threads_working, 1);
 
             job->thread_func(job->arg);
             free(job);
 
-            atomic_fetch_sub(&threadpool->num_threads_working, 1);
-            if (!atomic_load(&threadpool->num_threads_working)) { pthread_cond_signal(&threadpool->threadpool_thread_idle_cond); }
+            atomic_fetch_sub(&thread->threadpool->num_threads_working, 1);
+            if (!atomic_load(&thread->threadpool->num_threads_working)) { pthread_cond_signal(&thread->threadpool->threadpool_thread_idle_cond); }
         }
     }
-    atomic_fetch_sub(&threadpool->num_threads_alive, 1);
+    atomic_fetch_sub(&thread->threadpool->num_threads_alive, 1);
     return NULL;
+}
+
+int get_thread_id(threadpool_t *threadpool) {
+    pthread_t curr_thread = pthread_self();
+    for(int i=0;i<threadpool->thread_num;i++){
+        if(pthread_equal(threadpool->thread_t_arr[i].thread, curr_thread)){
+            return i;
+        }
+    }
+    return -1;
 }
 
 /* ======================== JOBQUEUE ========================= */

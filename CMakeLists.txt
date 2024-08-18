@@ -24,6 +24,7 @@ target_include_directories(zstd PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/vendor/zstd/l
 
 # Add libraries
 set(SQLITE_DEFAULT_FOREIGN_KEYS ON)
+# add_definitions(-DSQLITE_THREADSAFE=2)
 file(GLOB SQLITE_SOURCES vendor/sqlite/*.c)
 file(GLOB SQLITE_HEADERS vendor/sqlite/*.h)
 add_library(sqlite ${SQLITE_SOURCES})
