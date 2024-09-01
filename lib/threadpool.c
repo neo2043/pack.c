@@ -126,10 +126,8 @@ static void *thread_do(void *arg) {
 
 int get_thread_id(threadpool_t *threadpool) {
     pthread_t curr_thread = pthread_self();
-    for(int i=0;i<threadpool->thread_num;i++){
-        if(pthread_equal(threadpool->thread_t_arr[i].thread, curr_thread)){
-            return i;
-        }
+    for (int i = 0; i < threadpool->thread_num; i++) {
+        if (pthread_equal(threadpool->thread_t_arr[i].thread, curr_thread)) { return i; }
     }
     return -1;
 }
@@ -160,19 +158,19 @@ static job_t *jobqueue_pull(jobqueue_t *jobqueue) {
     job_t *job = jobqueue->front;
 
     switch (jobqueue->len) {
-    case 0:
-        // pthread_mutex_unlock(&jobqueue->jobqueue_mutex);
-        // return NULL;
-        break;
-    case 1:
-        jobqueue->front = NULL;
-        jobqueue->rear = NULL;
-        jobqueue->len = 0;
-        break;
-    default:
-        jobqueue->front = (job_t *)job->next;
-        jobqueue->len--;
-        jobqueue_sync_post_all(jobqueue->jobqueue_sync);
+        case 0:
+            // pthread_mutex_unlock(&jobqueue->jobqueue_mutex);
+            // return NULL;
+            break;
+        case 1:
+            jobqueue->front = NULL;
+            jobqueue->rear = NULL;
+            jobqueue->len = 0;
+            break;
+        default:
+            jobqueue->front = (job_t *)job->next;
+            jobqueue->len--;
+            jobqueue_sync_post_all(jobqueue->jobqueue_sync);
     }
     pthread_mutex_unlock(&jobqueue->jobqueue_mutex);
     return job;
@@ -182,13 +180,13 @@ static job_t *jobqueue_pull(jobqueue_t *jobqueue) {
 void jobqueue_push(jobqueue_t *jobqueue, job_t *newjob) {
     pthread_mutex_lock(&jobqueue->jobqueue_mutex);
     switch (jobqueue->len) {
-    case 0:
-        jobqueue->front = newjob;
-        jobqueue->rear = newjob;
-        break;
-    default:
-        jobqueue->rear->next = (struct job_t *)newjob;
-        jobqueue->rear = newjob;
+        case 0:
+            jobqueue->front = newjob;
+            jobqueue->rear = newjob;
+            break;
+        default:
+            jobqueue->rear->next = (struct job_t *)newjob;
+            jobqueue->rear = newjob;
     }
     jobqueue->len++;
     jobqueue_sync_post_all(jobqueue->jobqueue_sync);

@@ -7,10 +7,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "compress/walk.h"
 #include "arraylist.h"
 #include "cwalk.h"
-#include "walk.h"
+#include "dirwalk.h"
 
 char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_path) {
     char *path = calloc(4, sizeof(char));

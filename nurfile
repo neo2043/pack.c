@@ -4,10 +4,10 @@ const build_dir  = $"build-($host_target)"
 def "nur build" [target = all] {
     mkdir $build_dir
     cd $build_dir
-    # cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S .. -B .
-    # cmake --build . --config Release --target $target
-    cmake -G Ninja -S .. -B .
-    cmake --build . --target $target
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S .. -B .
+    cmake --build . --config Release --target $target
+    # cmake -G Ninja -S .. -B .
+    # cmake --build . --target $target
 }
 
 def "nur clean" [] {
@@ -23,22 +23,34 @@ def --wrapped "nur run" [bin = pack,...rest] {
 }
 
 def "nur patch" [] {
-    ls patches/* | each {|file| git apply $file.name} | str join
+  let temp = $env.PWD
+  cd vendor/datastructs
+  git apply ($temp | path join patches/datastructs.patch)
 }
-    
+  
 def "nur unpatch" [] {
-    ls patches/* | each {|file| git apply -R $file.name} | str join
+  let temp = $env.PWD
+  cd vendor/datastructs
+  git apply -R ($temp | path join patches/datastructs.patch)
 }
 
-def "nur patch generate" [directory:path] {
-    (git --no-pager diff --no-color --submodule=diff $directory 
-    | save --force ($env.PWD | path join patches $"($env.PWD | path join $directory | path relative-to $env.PWD).patch" ))
+def "nur patch generate" [] {
+    let temp = $env.PWD
+    cd vendor/datastructs
+    git diff | save --force ($temp | path join patches/datastructs.patch)
 }
 
 def "nur get sqlite" [] {
     let temp_path = $nu.temp-path | path join $"(random chars --length 8).zip"
     http get https://sqlite.org/2024/sqlite-amalgamation-3460000.zip | save $temp_path
-    tar -xv -C ($nu.temp-path) -f $temp_path
+    do {
+      cd ($nu.temp-path)
+      if ($nu.os-info.name == windows) {        
+        ^tar -xvf $temp_path
+      } else if ($nu.os-info.name == linux) {
+        ^unzip $temp_path
+      }
+    }
     mv ($nu.temp-path | path join sqlite-amalgamation-3460000) ($env.PWD | path join vendor sqlite)
 }
 
@@ -53,7 +65,6 @@ LEFT JOIN CHUNKS ON FILE_TABLE.ID = CHUNKS.FILE_ID
 GROUP BY FILE_TABLE.ID;
 SORT BY FILE_TABLE.ID ASC;
 '
-
 
 def "nur dump" [db_path: path = "output.db"] {
   let db = open $db_path;

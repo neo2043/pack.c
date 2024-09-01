@@ -27,8 +27,8 @@
     do {                                                                                                                                                       \
         int status = expr;                                                                                                                                     \
         if (!((status == SQLITE_OK) || (status == SQLITE_DONE) || (status == SQLITE_ROW))) {                                                                   \
-            fprintf(stderr, "thread_no: %lld\n", pthread_self());                                                                                                                   \
-            fprintf(stderr, "%s:%d CHECK(%s) failed with code %d: ", __FILE__, __LINE__, #expr, status);                                                                            \
+            fprintf(stderr, "thread_no: %lld\n", pthread_self());                                                                                              \
+            fprintf(stderr, "%s:%d CHECK(%s) failed with code %d: ", __FILE__, __LINE__, #expr, status);                                                       \
             fprintf(stderr, "%s\n", sqlite3_errmsg(ctx->DB));                                                                                                  \
             fprintf(stderr, "" __VA_ARGS__);                                                                                                                   \
             fprintf(stderr, "\n");                                                                                                                             \
@@ -64,5 +64,8 @@ typedef struct {
 
 cpu_threads_t *get_cpu_threads();
 int contains(const char *look_into, const char *look_for);
+void change_path_type_to_unix(char *path);
+void strncpy_m(char *dest, char *src, int len);
+int make_nested_folder(char *root_path, char *nested_path);
 
 #endif

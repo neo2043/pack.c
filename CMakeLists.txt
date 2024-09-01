@@ -8,7 +8,7 @@ project(pack.c
     VERSION 1.0.0
     LANGUAGES C)
 
-# set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Release")
 
 find_program(SCCACHE sccache REQUIRED)
 set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE})
