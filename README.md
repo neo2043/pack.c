@@ -15,6 +15,8 @@
     - [Command Syntax](#command-syntax)
     - [Options](#options)
     - [Example Commands](#example-commands)
+  - [Acknowledgments](#acknowledgments)
+  - [License](#license)
 
 ## Features
 
@@ -89,3 +91,11 @@ The compression tool can be used via the command line. Below are some basic usag
    ```bash
    ./pack[.exe] -xvf example.cpack .
    ```
+
+## Acknowledgments
+
+This is based on the [original implementation by PackOrganiztion](https://github.com/PackOrganization/Pack)
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
