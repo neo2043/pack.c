@@ -39,6 +39,7 @@
    git clone --recurse-submodules -j8 https://github.com/neo2043/pack.c.git
    cd pack.c
    nur get sqlite
+   nur patch
    ```
 
 2. Build the project:
@@ -50,6 +51,8 @@
    ```bash
    ./build-[architecture]-[os-name]/pack[.exe]
    ```
+
+You can copy the project binary to a folder in path to use it globally in terminal
 
 ### Windows
 
