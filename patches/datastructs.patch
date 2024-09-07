@@ -21,7 +21,7 @@ index 8d1067d..b4b1b2e 100644
  }
  
 diff --git a/arraylist.h b/arraylist.h
-index 64cb1dc..443e605 100644
+index 64cb1dc..c0954dc 100644
 --- a/arraylist.h
 +++ b/arraylist.h
 @@ -1,3 +1,6 @@
@@ -42,7 +42,7 @@ index 64cb1dc..443e605 100644
 -#define arraylist_iterate(l, index, item) \
 -	for (index = 0, item = l->body[0]; index < l->size; item = l->body[++index])
 +#define arraylist_iterate(l) \
-+	for (struct {unsigned int index; void *item;} ctx = {0,l->body[0]}; ctx.index < l->size; ctx.item = l->body[++ctx.index])
++	for (struct {unsigned int index; void *item;} ctx = {0,l->body[0]}; ctx.index < l->size && (ctx.item = l->body[ctx.index]); ctx.index++)
  struct arraylist {
  	unsigned int size; // Count of items currently in list
  	unsigned int capacity; // Allocated memory size, in items

@@ -31,13 +31,11 @@ char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_pat
             memcpy(path, base, len);
             return path;
         }
-        if (only_relative_path && S_ISREG(pathCtx->stbuf->st_mode)) {
+        if (only_relative_path) {
             only_relative_path = 0;
             continue;
         }
-        if (index != -1 && ctx.index > index) {
-            continue;
-        }
+        if (index != -1 && ctx.index > index) { continue; }
         int pathlen = ((strlen(((segment_t *)ctx.item)->segment_name) + 1) + (strlen(path) + 1));
         path = realloc(path, sizeof(char) * pathlen);
         cwk_path_join(path, ((segment_t *)ctx.item)->segment_name, path, pathlen);
@@ -93,9 +91,9 @@ walk_ctx init_walk_ctx(char *root_path) {
     return ctx;
 }
 
-void deinit_walk_ctx(walk_ctx *ctx){
+void deinit_walk_ctx(walk_ctx *ctx) {
     free(ctx->stbuf);
-    for(int i=0;i<arraylist_size(ctx->path_segment_stack);i++){
+    for (int i = 0; i < arraylist_size(ctx->path_segment_stack); i++) {
         segment_t *temp = arraylist_pop(ctx->path_segment_stack);
         deinit_walk_segment(temp);
     }
@@ -111,9 +109,7 @@ struct dirent *readdir_handler(DIR *dir) {
     struct dirent *de;
     do {
         de = readdir(dir);
-        if (de == NULL) {
-            return NULL;
-        }
+        if (de == NULL) { return NULL; }
     } while (!(strcmp(de->d_name, ".")) || !(strcmp(de->d_name, "..")));
     return de;
 }
@@ -123,9 +119,7 @@ int walk_next(walk_ctx *ctx) {
     if (lst_seg->seg_type == folder) {
         DIR *dir;
         if (lst_seg->passed_over) {
-            if (lst_seg->associated_no == 0) {
-                return 0;
-            }
+            if (lst_seg->associated_no == 0) { return 0; }
             char *passed_over_Path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2, 0);
             dir = opendir(passed_over_Path);
             free(passed_over_Path);
@@ -150,9 +144,7 @@ int walk_next(walk_ctx *ctx) {
             lst_seg->passed_over = true;
             return 1;
         }
-        if (lst_seg->associated_no == 0 && lst_seg->passed_over == true) {
-            return 0;
-        }
+        if (lst_seg->associated_no == 0 && lst_seg->passed_over == true) { return 0; }
         DIR *dir;
         struct dirent *de;
         char *abs_path = walk_get_absolute_path(ctx, arraylist_size(ctx->path_segment_stack) - 2, 0);

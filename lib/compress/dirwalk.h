@@ -28,4 +28,4 @@ int walk_next(walk_ctx *ctx);
 char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_path);
 void deinit_walk_segment(segment_t *temp);
 
-#endif  // WALK
+#endif // WALK
