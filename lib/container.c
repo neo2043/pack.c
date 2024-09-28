@@ -15,6 +15,9 @@ db_ctx_t *init_db_ctx_c(char *db_path) {
     char *sqlitesetupdb = "PRAGMA foreign_keys = ON;"
                           "PRAGMA journal_mode = WAL;";
 
+    char *sqlcreatechunksizetable = "CREATE TABLE IF NOT EXISTS CHUNKSIZE("
+                                    "SIZE INTEGER NOT NULL);";
+
     char *sqlcreatefiletable = "CREATE TABLE IF NOT EXISTS FILE_TABLE("
                                "ID          INTEGER    NOT NULL  PRIMARY KEY  AUTOINCREMENT, "
                                "FILE_PATH   TEXT       NOT NULL  UNIQUE);";
@@ -32,6 +35,7 @@ db_ctx_t *init_db_ctx_c(char *db_path) {
 
     CHECK_SQLITE(sqlite3_exec(ctx->DB, sqlitesetupdb, NULL, 0, NULL), ctx, "sqlite setup db");
     CHECK_SQLITE(sqlite3_exec(ctx->DB, sqlcreatefiletable, NULL, 0, NULL), ctx, "create file table");
+    CHECK_SQLITE(sqlite3_exec(ctx->DB, sqlcreatechunksizetable, NULL, 0, NULL), ctx, "create chunk size table");
     CHECK_SQLITE(sqlite3_exec(ctx->DB, sqlcreatechunktable, NULL, 0, NULL), ctx, "create chunk table");
     CHECK_SQLITE(sqlite3_exec(ctx->DB, sqlcreatechunkindex, NULL, 0, NULL), ctx, "create chunk index");
 
@@ -79,6 +83,16 @@ void db_insert_chunk(db_insert_chunk_ctx_t *ctx, const int read_size, const int 
     CHECK_SQLITE(sqlite3_reset(ctx->stmt), ctx, "insert in chunk table stmt reset");
 }
 
+void db_insert_chunk_size(db_ctx_t *ctx, long long int chunk_size) {
+    char *query = "INSERT INTO CHUNKSIZE (SIZE) VALUES (?)";
+    sqlite3_stmt *chunk_size_stmt;
+    CHECK_SQLITE(sqlite3_prepare_v2(ctx->DB, query, strlen(query), &chunk_size_stmt, NULL), ctx, "prepare chunk size stmt");
+    CHECK_SQLITE(sqlite3_bind_int64(chunk_size_stmt, 1, chunk_size), ctx, "insert chunk size bind int");
+    CHECK_SQLITE(sqlite3_step(chunk_size_stmt), ctx, "insert chunk size step");
+    CHECK_SQLITE(sqlite3_reset(chunk_size_stmt), ctx, "insert chunk size reset");
+    CHECK_SQLITE(sqlite3_finalize(chunk_size_stmt), ctx, "insert chunk size finalize");
+}
+
 db_ctx_t *init_db_ctx_d(char *db_path) {
     db_ctx_t *ctx = malloc(sizeof(db_ctx_t));
     CHECK(ctx != NULL, "decompress init_db_ctx_d");
@@ -87,6 +101,28 @@ db_ctx_t *init_db_ctx_d(char *db_path) {
 }
 
 void deinit_db_ctx_d(db_ctx_t *ctx) { CHECK_SQLITE(sqlite3_close(ctx->DB), ctx, "deinit db ctx"); }
+
+long long int get_chunk_size(db_ctx_t *ctx) {
+    char *query = "SELECT SIZE FROM CHUNKSIZE";
+    sqlite3_stmt *chunk_size_stmt;
+    CHECK_SQLITE(sqlite3_prepare_v2(ctx->DB, query, strlen(query), &chunk_size_stmt, NULL), ctx, "prepare chunk size stmt");
+    int expr = sqlite3_step(chunk_size_stmt);
+    long long int size;
+    switch (expr) {
+        case SQLITE_DONE || SQLITE_OK:
+            return -1;
+            break;
+        case SQLITE_ROW:
+            size = sqlite3_column_int64(chunk_size_stmt, 0);
+            break;
+        default:
+            CHECK_SQLITE(expr, ctx, "db_get_chunksize");
+            break;
+    }
+    CHECK_SQLITE(sqlite3_reset(chunk_size_stmt), ctx, "insert chunk size reset");
+    CHECK_SQLITE(sqlite3_finalize(chunk_size_stmt), ctx, "insert chunk size finalize");
+    return size;
+}
 
 db_filetable_walk_ctx_t *init_db_filetable_walk_ctx(db_ctx_t *ctx) {
     db_filetable_walk_ctx_t *stmt_ctx = malloc(sizeof(db_filetable_walk_ctx_t));
@@ -154,4 +190,14 @@ db_chunktable_step_t *db_chunktable_step(db_chunktable_walk_ctx_t *ctx) {
             break;
     }
     return step_ret;
+}
+
+void list_file_table(db_ctx_t *ctx) {
+    db_filetable_walk_ctx_t *ftwalkctx = init_db_filetable_walk_ctx(ctx);
+    filetable_var_t *ftvar;
+    while ((ftvar = db_get_filetable_row(ftwalkctx)) != NULL) {
+        printf("%lld\t%s", ftvar->id, ftvar->filepath);
+        free(ftvar->filepath);
+        free(ftvar);
+    }
 }

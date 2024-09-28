@@ -25,6 +25,6 @@ typedef struct {
 walk_ctx init_walk_ctx(char *root_path);
 void deinit_walk_ctx(walk_ctx *ctx);
 int walk_next(walk_ctx *ctx);
-char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_path);
+char *walk_get_absolute_path(walk_ctx *pathCtx, int index, int only_relative_path, int include_last_of_root);
 
-#endif  // WALK
+#endif // WALK

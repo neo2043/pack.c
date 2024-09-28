@@ -14,12 +14,14 @@
 #include "container.h"
 #include "cwalk.h"
 #include "hashtable.h"
+#include "lib/container.h"
 #include "pack.h"
 #include "threadpool.h"
 #include "zstd.h"
 #include "zstd_util.h"
 
 int verbose = 0;
+int argcount;
 
 int main(int argc, const char **argv) {
     const char *const usages[] = {"pack [options] [path to other path]", NULL};
@@ -28,36 +30,40 @@ int main(int argc, const char **argv) {
     int decompress = 0;
     int compress = 0;
     int compression_level = 0;
+    long long int chunk_size = 0;
     struct cwk_segment segment;
     struct stat stbuf;
-    struct argparse_option options[] = {
-        OPT_HELP(),
-        OPT_GROUP("BASIC OPERATIONS"),
-        OPT_BOOLEAN('v', "verbose", &verbose, "verbose", NULL, 0, 0),
-        OPT_INTEGER('j', "thread-num", &num_threads, "no. of threads", NULL, 0, 0),
-        OPT_INTEGER('l', "compression-evel", &compression_level, "compression level", NULL, 0, 0),
-        OPT_BOOLEAN('x', "decompress", &decompress, "option to decompress", NULL, 0, 0),
-        OPT_BOOLEAN('c', "compress", &compress, "option to compress", NULL, 0, 0),
-        OPT_STRING('f', "archive", &archive_path, "path to archive", NULL, 0, 0),
-        OPT_END()
-    };
+    struct argparse_option options[] = {OPT_HELP(),
+                                        OPT_GROUP("BASIC OPERATIONS"),
+                                        OPT_BOOLEAN('v', "verbose", &verbose, "verbose", NULL, 0, 0),
+                                        OPT_INTEGER('j', "thread-num", &num_threads, "no. of threads", NULL, 0, 0),
+                                        OPT_INTEGER('l', "compression-level", &compression_level, "compression level", NULL, 0, 0),
+                                        OPT_INTEGER('C', "chunk-size", &chunk_size, "Chunk Size in MB (not to be used with decompress)", NULL, 0, 0),
+                                        OPT_BOOLEAN('x', "decompress", &decompress, "option to decompress", NULL, 0, 0),
+                                        OPT_BOOLEAN('c', "compress", &compress, "option to compress", NULL, 0, 0),
+                                        OPT_STRING('f', "archive", &archive_path, "path to archive", NULL, 0, 0),
+                                        OPT_END()};
     struct argparse argparse;
     argparse_init(&argparse, options, usages, 0);
     argparse_describe(&argparse, "a tool to compress files and folder FAST", "provide path to compress a file or folder or to decompress a .cpack file");
     argc = argparse_parse(&argparse, argc, argv);
-    if ((decompress && compress) || (!decompress && argc != 1 && !archive_path) || (!compress && argc != 1 && !archive_path)) {
+    argcount = argc;
+    if ((decompress && compress) || (!decompress && argc != 1 && !archive_path) || (!compress && argc != 1 && !archive_path) || (decompress && chunk_size)) {
         CHECK(0, "please provide proper arguments");
     }
     if (compress) {
         char *abs_archive_path = getcwd(NULL, PATH_MAX);
         cwk_path_get_absolute(abs_archive_path, archive_path, abs_archive_path, PATH_MAX);
-        char *ccwd = getcwd(NULL, PATH_MAX);
-        cwk_path_get_absolute(ccwd, *argv, ccwd, PATH_MAX);
         if (!num_threads) { num_threads = get_cpu_threads()->nprocs; }
         if (!compression_level) { compression_level = 3; }
-        mt_compress_handler(ccwd, abs_archive_path, compression_level, num_threads, verbose);
+        if (!chunk_size) { chunk_size = 3; }
+        for (int i = 0; i < argc; i++) {
+            char *ccwd = getcwd(NULL, PATH_MAX);
+            cwk_path_get_absolute(ccwd, *(argv + i), ccwd, PATH_MAX);
+            mt_compress_handler(ccwd, abs_archive_path, compression_level, num_threads, chunk_size);
+            free(ccwd);
+        }
         free(abs_archive_path);
-        free(ccwd);
     }
     if (decompress) {
         char *abs_archive_path = getcwd(NULL, PATH_MAX);
@@ -65,9 +71,10 @@ int main(int argc, const char **argv) {
         char *ocwd = getcwd(NULL, PATH_MAX);
         cwk_path_get_absolute(ocwd, *argv, ocwd, PATH_MAX);
         if (!num_threads) { num_threads = get_cpu_threads()->nprocs; }
-        mt_decompress_handler(ocwd, abs_archive_path, num_threads, verbose);
-        free(ocwd);
+        if (!chunk_size) { chunk_size = 4; }
+        mt_decompress_handler(ocwd, abs_archive_path, num_threads);
         free(abs_archive_path);
+        free(ocwd);
     }
     return 0;
 }
@@ -106,14 +113,15 @@ int main(int argc, const char **argv) {
 //     deinit_walk_ctx(&pctx);
 // }
 
-void mt_compress_handler(char *f_path, char *db_path, int compression_level, int num_thread, int verbose) {
+void mt_compress_handler(char *f_path, char *db_path, int compression_level, int num_thread, long long int chunk_size) {
     walk_ctx pctx = init_walk_ctx(f_path);
     threadpool_t *threadpool = threadpool_t_init(num_thread);
     arraylist *hashtable = arraylist_create();
     db_ctx_t *dbctx = init_db_ctx_c(db_path);
+    db_insert_chunk_size(dbctx, chunk_size);
     for (int i = 0; i < num_thread; i++) {
         hashtable_compress_value_t *thread_ctx = malloc(sizeof(hashtable_compress_value_t));
-        thread_ctx->cctx = init_compress_ctx(compression_level);
+        thread_ctx->cctx = init_compress_ctx(compression_level, chunk_size);
         thread_ctx->chunktable_ctx = init_db_insert_chunk_ctx(dbctx);
         thread_ctx->filetable_ctx = init_db_insert_file_ctx(dbctx);
         hashtable_add(hashtable, &threadpool->thread_t_arr[i].thread, thread_ctx);
@@ -121,8 +129,8 @@ void mt_compress_handler(char *f_path, char *db_path, int compression_level, int
     while (walk_next(&pctx)) {
         if (!S_ISREG(pctx.stbuf->st_mode)) continue;
         thread_compression_function_arg_t *job_arg = malloc(sizeof(thread_compression_function_arg_t));
-        job_arg->file_path = walk_get_absolute_path(&pctx, -1, 0);
-        job_arg->rel_file_path = walk_get_absolute_path(&pctx, -1, 1);
+        job_arg->file_path = walk_get_absolute_path(&pctx, -1, 0, 0);
+        job_arg->rel_file_path = walk_get_absolute_path(&pctx, -1, 1, argcount>1);
         job_arg->file_size = pctx.stbuf->st_size;
         job_arg->hashtable = hashtable;
         if (contains(job_arg->file_path, db_path)) {
@@ -193,7 +201,7 @@ void *mt_compression_function(void *arg) {
 //     }
 // }
 
-void mt_decompress_handler(char *d_f_path, char *db_path, int num_thread, int verbose) {
+void mt_decompress_handler(char *d_f_path, char *db_path, int num_thread) {
     db_ctx_t *dbctx = init_db_ctx_d(db_path);
     db_filetable_walk_ctx_t *ftwalk = init_db_filetable_walk_ctx(dbctx);
     threadpool_t *threadpool = threadpool_t_init(num_thread);
@@ -204,7 +212,7 @@ void mt_decompress_handler(char *d_f_path, char *db_path, int num_thread, int ve
     for (int i = 0; i < num_thread; i++) {
         hashtable_decompress_value_t *thread_ctx = malloc(sizeof(hashtable_compress_value_t));
         thread_ctx->chunktable_ctx = init_db_chunktable_walk_ctx(dbctx);
-        thread_ctx->dctx = init_decompress_ctx();
+        thread_ctx->dctx = init_decompress_ctx(get_chunk_size(dbctx) + 2);
         hashtable_add(hashtable, &threadpool->thread_t_arr[i].thread, thread_ctx);
     }
     while ((ftvar = db_get_filetable_row(ftwalk)) != NULL) {
@@ -220,6 +228,7 @@ void mt_decompress_handler(char *d_f_path, char *db_path, int num_thread, int ve
         job_arg->id = ftvar->id;
         job_arg->hashtable = hashtable;
         threadpool_add_work(threadpool, mt_decompression_function, job_arg);
+        free(ftvar->filepath);
         free(ftvar);
     }
     threadpool_wait(threadpool);

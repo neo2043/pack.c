@@ -5,10 +5,10 @@
 #include "zstd.h"
 #include "zstd_util.h"
 
-compress_ctx *init_compress_ctx(int compression_level) {
+compress_ctx *init_compress_ctx(int compression_level, long long int chunk_size) {
     compress_ctx *res = malloc(sizeof(compress_ctx));
-    res->fBufferSize = 3 * 1024 * 1024;
-    res->cBufferSize = ZSTD_compressBound(3 * 1024 * 1024);
+    res->fBufferSize = chunk_size * 1024 * 1024;
+    res->cBufferSize = ZSTD_compressBound(chunk_size * 1024 * 1024);
     res->fBuffer = calloc(1, res->fBufferSize);
     res->cBuffer = calloc(1, res->cBufferSize);
     res->cctx = ZSTD_createCCtx();
@@ -23,9 +23,9 @@ void deinit_compress_ctx(compress_ctx *ctx) {
     CHECK_ZSTD(ZSTD_freeCCtx(ctx->cctx));
 }
 
-decompress_ctx *init_decompress_ctx() {
+decompress_ctx *init_decompress_ctx(long long int chunk_size) {
     decompress_ctx *res = malloc(sizeof(decompress_ctx));
-    res->dBufferSize = 4 * 1024 * 1024;
+    res->dBufferSize = chunk_size * 1024 * 1024;
     res->dBuffer = calloc(1, res->dBufferSize);
     res->dctx = ZSTD_createDCtx();
     return res;
