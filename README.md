@@ -75,6 +75,7 @@ The compression tool can be used via the command line. Below are some basic usag
 
 - `-c, --compress <file/folder>`: Compress the specified file.
 - `-l, --compression-level`: compression level.
+- `-C, --chunk-size <num>`: Chunk size in MB.
 - `-f, --archive <file>`: path to .cpack archive.
 - `-j, --thread-num`: number of threads.
 - `-v, --verbose`: verbose.
